@@ -6,7 +6,7 @@ interface IdaoContract {
     function balanceOf(address, uint256) external view returns (uint256);
 }
 
-contract MoralisDao {
+contract Dao {
 
     address public owner;
     uint256 nextProposal; 
@@ -51,9 +51,9 @@ contract MoralisDao {
         bool votedFor
     );
 
-    event poposalCount(
+    event proposalCount(
         uint256 id,
-        bool passsed
+        bool passed
     );
 
     //Private functions to check eligibility
@@ -85,5 +85,56 @@ contract MoralisDao {
         newProposal.deadline = block.number + 100;
         newProposal.canVote = _canVote;
         newProposal.maxVotes = _canVote.length;
+
+        emit propsalCreated(nextProposal, _description, _canVote.length, msg.sender);
+        nextProposal++;
     }
+
+    function voteOnProposal(uint256 _id, bool _vote) public {
+        require(Proposals[_id].exists,"This Proposal does not exist");
+        require(checkVoteEligibility(_id, msg.sender), "You can not vote on this Proposal");
+        require(!Proposals[_id].voteStatus[msg.sender], "You have already voted on this Proposal");
+        require(block.number <= Proposals[_id].deadline, "The deadline has passed for this Proposal");
+
+        proposal storage p = Proposals[_id];
+
+        if(_vote){
+            p.votesUp++;
+        }
+        else{
+            p.votesDown++;
+        }
+        
+        p.voteStatus[msg.sender] = true;
+
+        emit newVote(p.votesUp, p.votesDown, msg.sender, _id, _vote);
+    }
+
+    //Function to count the total votes for a proposal
+    
+    function countVotes(uint256 _id) public {
+        require(msg.sender == owner, "Only owner can count the votes");
+        require(Proposals[_id].exists,"This proposal does not exist");
+        require(block.number > Proposals[_id].deadline, "Voting has not concluded");
+        require(!Proposals[_id].countConducted, "Count already conducted");
+
+        proposal storage p = Proposals[_id];
+
+        if(Proposals[_id].votesDown < Proposals[_id].votesUp) {
+            p.passed = true;
+        }
+
+        p.countConducted = true;
+
+        emit  proposalCount(_id, p.passed);
+    }
+
+    //To add new NFT tokens to the contract
+    function addTokenId(uint256 _tokenId) public {
+        require(msg.sender == owner, "Only owner can add Tokens");
+
+        validTokens.push(_tokenId);
+    }
+
+
 }
